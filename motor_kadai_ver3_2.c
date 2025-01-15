@@ -1,8 +1,8 @@
-//===========================<header >============================
+//===========================< ヘッダファイル >============================
 
 #include "stm32f10x.h"
 
-//=========================< symbol >============================
+//=========================< 各種シンボル定義 >============================
 
 #define SW01 0x2000
 #define Sensor02 0xf800
@@ -11,15 +11,15 @@
 #define R_Base_Speed 8000
 #define L_Base_Speed 8000
 
-#define run				0x2000 	
-#define l_right			0x3000	
-#define right			0x3800	
+#define run				0x2000 	//前進
+#define l_right			0x3000	//やや右
+#define right			0x3800	//右
 #define d_right			0x1800
-#define l_left			0x6000	
-#define left			0xe000	
+#define l_left			0x6000	//やや左
+#define left			0xe000	//左
 #define d_left			0xc000
-#define	c_o				2	
-#define c_s				0x0	
+#define	c_o				2	//コースアウト
+#define c_s				0x0	//交差点
 
 #define led_run 0xf3
 #define led_l_r 0xf2
@@ -35,10 +35,10 @@
 #define Delay_time 10000
 
 
-//=======================< Global >============================
+//=======================< グローバル・データ定義 >============================
 
-unsigned int Up = 0;   	数
-unsigned int Senser = 0;数
+unsigned int Up = 0;   	// 表示タイミング及びスイッチ押下を示すフラグ変数
+unsigned int Senser = 0;// 表示タイミング及びスイッチ押下を示すフラグ変数
 
 unsigned int motor = 0;
 volatile uint32_t tick = 0;
@@ -48,12 +48,13 @@ int SENSER2 = 0;
 int num = 0;
 int count = 0;
 int state_last = 0;
-//=========================< code section >==============================
+//=========================< コード・セクション >==============================
 
+/* 関数のプロトタイプ宣言 */
 
-void My_SystemInit(void);
+void My_SystemInit(void);		// GPIO ポート及び SysTick タイマの設定を行う関数
 void Tim3_Init(void);
-unsigned int Get_SW1(void);
+unsigned int Get_SW1(void);		// スイッチの値を取得する関数
 unsigned int Get_SW2(void);
 unsigned int Get_Sensor(void);
 unsigned int Get_Sensor2(void);
@@ -63,7 +64,9 @@ void Left_Motor_Run(double);
 void Left_BackMotor_Run(double);
 void delay_ms(uint32_t ms);
 
-
+/*
+**	main 関数
+*/
 
 int main(void)
 {
@@ -85,14 +88,14 @@ int main(void)
 
 	while(1) {
 
-		if (Up & SW01) {				// run motor
+		if (Up & SW01) {				// モーター始動
 			Up &= ~SW01;
 
 			if (motor == 0) {
 				motor = 1;
 
 
-			}else {					//stop motor
+			}else {					//モーター停止
 				motor = 0;
 				TIM3->CCR3 = 0;
 				TIM3->CCR1 = 0;
@@ -118,7 +121,7 @@ int main(void)
 				}
 				break;
 
-			case RUN:			
+			case RUN:			//直進
 				if(SENSER2 == run){
 					Right_BackMotor_Run(0);
 					Left_BackMotor_Run(0);
@@ -137,7 +140,7 @@ int main(void)
 
 
 
-				//---------------------right--------------------//
+				//---------------------ここから右折--------------------//
 			case L_RIGHT:
 				if(SENSER2 == l_right){
 					Right_BackMotor_Run(0);
@@ -192,7 +195,7 @@ int main(void)
 				};
 				break;
 
-				//------------------left-------------------//
+				//------------------ここから左折-------------------//
 			case L_LEFT:
 				if(SENSER2 == l_left){
 					Right_BackMotor_Run(0);
@@ -248,7 +251,7 @@ int main(void)
 				break;
 
 
-				//-----------------------Exception-----------------------//
+				//--------------------------例外処理---------------------//
 			case COURSEOUT:
 				count = 0;
 				GPIOA->ODR = led_couseout;
@@ -354,11 +357,11 @@ void My_SystemInit(void)
 				   RCC_APB2ENR_IOPCEN |
 				   RCC_APB2ENR_AFIOEN;
 
-/*motor port  PC6,PC7,PC8,PC9 output enable */
+/* モータ制御用のポート PC6、PC7、PC8、PC9 を出力に設定 */
 	AFIO->MAPR = 0x2000C00;
-	AFIO->MAPR = 0xC00;	       //TIM3 enable
+	AFIO->MAPR = 0xC00;	       //TIM3の信号をリマップ、CH3をPC8に接続
 	GPIOA->CRL = 0x44414411;
-	GPIOC->CRL = 0xaa444444;
+	GPIOC->CRL = 0xaa444444;	//PC8もオルタネート出力に設定
 	GPIOC->CRH = 0x444444aa;
 
 	GPIOA->ODR =0xff;
@@ -366,27 +369,27 @@ void My_SystemInit(void)
 
 	RCC_ClocksTypeDef RCC_Clocks;
 	RCC_GetClocksFreq(&RCC_Clocks);
-	SysTick_Config(RCC_Clocks.HCLK_Frequency / 1000);	
-														
+	SysTick_Config(RCC_Clocks.HCLK_Frequency / 1000);	// SysTick タイマ割込みの間隔を 1000us　に設定
+														// （ダイナミック点灯の周波数は 2KHz になる）
 
-	TIM3->PSC =23;
-	TIM3->ARR =9999; 
+	TIM3->PSC =23;//プリスケーラ23　CLKが24MHzなので1MHzでカウンタが動作
+	TIM3->ARR =9999; //カウンタは10msで最大値9999
 
 
 }
 
 void Tim3_Init(void) {
 
-// 	TIM3->CCMR2 = 0x68; //OC3M=110(PWM),OC3PE=1,CSS4S=00(output).
-	TIM3->CCMR1 = 0x6868;//OC1M-OC2M=110(PWM),OC1PE-OC2PE=1,CSS4S=00(output)
-	TIM3->CCMR2 = 0x6868;//OC3M-OC4M=110(PWM),OC3PE-OC4PE=1,CSS4S=00(output)
-	TIM3->CCER =0x1111;  //CC3E=1(CH1,3 output enable /PC8/AIN1/right wheel)
-	TIM3->CCR1 =1;
+// 	TIM3->CCMR2 = 0x68; //OC3M=110(PWM),OC3PE=1,CSS4S=00(出力).
+	TIM3->CCMR1 = 0x6868;//OC1M-OC2M=110(PWM),OC1PE-OC2PE=1,CSS4S=00(出力)
+	TIM3->CCMR2 = 0x6868;//OC3M-OC4M=110(PWM),OC3PE-OC4PE=1,CSS4S=00(出力)
+	TIM3->CCER =0x1111;  //CC3E=1(CH1、3出力イネーブル/PC8/AIN1/右車輪)
+	TIM3->CCR1 =1;		//比較値セット(PC6/BIN1/左車輪)
 	TIM3->CCR2 =1;
 	TIM3->CCR3 =1;
-	TIM3->CCR4 =1;   
-	TIM3->CR1|=0x80;    //ARPE=1
-	TIM3->CR1|=0x1;     //TIM start
+	TIM3->CCR4 =1;      //比較値セット(PC8/AIN1/右車輪)
+	TIM3->CR1|=0x80;    //ARPE=1(自動プリロード)
+	TIM3->CR1|=0x1;     //TIMスタート
 }
 
 
@@ -394,8 +397,8 @@ unsigned int Get_Sensor(void)
 {
 	unsigned int Sensor;
 
-	Sensor = ~GPIOA->IDR;	
-	Sensor = Sensor & Sensor0;
+	Sensor = ~GPIOA->IDR;	// スイッチの値を（負論理なので）ビット反転して読み込む
+	Sensor = Sensor & Sensor0;		// スイッチ以外のビットをマスクする
 
 	return Sensor;
 }
@@ -404,8 +407,8 @@ unsigned int Get_Sensor2(void)
 {
 	unsigned int Sensor2;
 
-	Sensor2 = GPIOB->IDR;	
-	Sensor2 = Sensor2 & Sensor02;
+	Sensor2 = GPIOB->IDR;	// スイッチの値を読み込む
+	Sensor2 = Sensor2 & Sensor02;		// スイッチ以外のビットをマスクする
 
 	return Sensor2;
 }
@@ -415,8 +418,8 @@ unsigned int Get_SW1(void)
 {
 	unsigned int sw;
 
-	sw = ~GPIOC->IDR;
-	sw = sw & SW01;	
+	sw = ~GPIOC->IDR;	// スイッチの値を（負論理なので）ビット反転し読み込む
+	sw = sw & SW01;		// スイッチ以外のビットをマスクする
 
 	return sw;
 }
@@ -425,20 +428,20 @@ unsigned int Get_SW1(void)
 
 void SysTick_Handler(void)
 {
-	static unsigned int swc  = 0;	
-	static unsigned int swp1 = 0;	
-	static unsigned int swp2 = 0;	
+	static unsigned int swc  = 0;	// 今回読み込んだスイッチの値
+	static unsigned int swp1 = 0;	// 前回読み込んだスイッチの値
+	static unsigned int swp2 = 0;	// 前々回に読み込んだスイッチの値
 
-	static unsigned int sw_now  = 0;
-	static unsigned int sw_last = 0;
+	static unsigned int sw_now  = 0;	// 今回（現在）のスイッチの確定値
+	static unsigned int sw_last = 0;	// 前回のスイッチの確定値
 
-	static int chat_count = 0;	
+	static int chat_count = 0;	// チャタリング除去用のカウンタ変数
 
     if (tick > 0) {
         tick--;
     }
 
-	if (chat_count == 1) {
+	if (chat_count == 1) {	// 1000us を 10 回繰り返して 10ms を作り出す
 		chat_count = 0;
 
 		swp2 = swp1;
@@ -447,17 +450,17 @@ void SysTick_Handler(void)
 
 
 
-		if ((swp2 == swp1) && (swp1 == swc)) {	
-			sw_now = swc;						
+		if ((swp2 == swp1) && (swp1 == swc)) {	// 今回、前回、前々回の値が全て等しい
+			sw_now = swc;						// 場合、今回の値を現在の確定値とする
 		}
 
 
 
-		if (sw_now != sw_last) {		
-			if (sw_now & ~sw_last) {	
-				Up |= SW01;				
+		if (sw_now != sw_last) {		// 前回のスイッチの値と異なる場合だけ以下の処理を行う
+			if (sw_now & ~sw_last) {		// 立上り（スイッチの押下）を検出したら
+				Up |= SW01;					// スイッチ押下のフラグを立てる
 			}
-			sw_last = sw_now;			
+			sw_last = sw_now;				// 現在のスイッチの値を sw_last に保存する
 		}
 
 	} else {
